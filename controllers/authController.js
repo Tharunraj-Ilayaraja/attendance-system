@@ -23,7 +23,7 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-   console.log("here");
+   console.log("mf, all working....in login now");
   const { email, password } = req.body;
   console.log(email," ",password);
  

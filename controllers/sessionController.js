@@ -15,7 +15,7 @@ exports.createSession = async (req, res) => {
 
     ;
     const token = uuidv4();
-    const qrUrl = `http://localhost:3000/scan?token=${token}`;
+    const qrUrl = `${process.env.REACT_API}/scan?token=${token}`;
     const qrImage = await QRCode.toDataURL(qrUrl)
     const session_code = Math.floor(100000 + Math.random() * 900000).toString();
     const radius = 50; // meters

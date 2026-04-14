@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 5000;
 const cors = require("cors");
 //app.use(cors());
 app.use(cors({
-  origin: "https://attendance-system-frontend-pi.vercel.app/",
+  origin: ["https://attendance-system-frontend-pi.vercel.app", "http://localhost:3000"],
   credentials :true
 }));
 

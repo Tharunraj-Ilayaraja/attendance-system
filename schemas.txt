@@ -1,0 +1,43 @@
+1. users
+users (
+  id SERIAL PRIMARY KEY,
+  name TEXT,
+  email TEXT UNIQUE,
+  password TEXT,
+  role TEXT CHECK (role IN ('student', 'teacher')),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+
+2. sessions
+sessions (
+  id SERIAL PRIMARY KEY,
+  teacher_id INTEGER REFERENCES users(id),
+  session_code TEXT,         -- OTP
+  qr_token TEXT UNIQUE,      -- used in QR
+  latitude DECIMAL,
+  longitude DECIMAL,
+  radius INTEGER DEFAULT 50, -- meters
+  start_time TIMESTAMP,
+  end_time TIMESTAMP,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+
+3. attendance
+attendance (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  session_id INTEGER REFERENCES sessions(id),
+  status TEXT CHECK (status IN ('present', 'absent')),
+  marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, session_id)  -- prevents duplicate attendance
+)
+
+4. session_logs (Anti-cheat tracking)
+session_logs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER,
+  session_id INTEGER,
+  event TEXT,  -- 'joined', 'left_screen', 'verified'
+  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)

@@ -124,6 +124,12 @@ exports.verifySession = async (req, res) => {
    "SELECT * FROM join_tokens WHERE token=$1",
    [join_token]
    );
+  
+
+   console.log("BACKEND VERIFY SESSIONS HIT");
+   console.log(req.body);
+   console.log(join_token);
+   console.log(tokenRes);
 
   if (tokenRes.rows.length === 0) {
   return res.status(403).json({ message: "Invalid token" });

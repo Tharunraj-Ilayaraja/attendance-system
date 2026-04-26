@@ -3,7 +3,7 @@ const getDistance = require("../utils/distance");
 const { v4: uuidv4 } = require("uuid");
 const QRCode = require("qrcode");
 
-const JOIN_TOKENS = {};
+
 
 // ✅ Create Session (Teacher Only)
 exports.createSession = async (req, res) => {
@@ -96,10 +96,11 @@ exports.precheckSession = async (req, res) => {
 
     const join_token = uuidv4();
 
-    JOIN_TOKENS[join_token] = {
-      session_id: session.id,
-      expires_at: Date.now() + (2 * 60 * 1000)
-    };
+    await pool.query(
+    "INSERT INTO join_tokens (token, session_id, expires_at) VALUES ($1,$2,$3)",
+    [join_token, session.id, Date.now() + (2 * 60 * 1000)]
+    );
+    
 
     res.json({
       message: "Allowed",
@@ -117,19 +118,26 @@ exports.precheckSession = async (req, res) => {
 
 exports.verifySession = async (req, res) => {
   const { session_id, otp, reg_no ,join_token} = req.body;
-  const sessionIdNum = Number(session_id);
-  const tokenData = JOIN_TOKENS[join_token];
+ 
+ 
+  const tokenRes = await pool.query(
+   "SELECT * FROM join_tokens WHERE token=$1",
+   [join_token]
+   );
 
-  
+  if (tokenRes.rows.length === 0) {
+  return res.status(403).json({ message: "Invalid token" });
+  }
 
-  if (!tokenData || tokenData.session_id !== sessionIdNum) {
+  const tokenData = tokenRes.rows[0];
+
+ if (tokenData.session_id !== Number(session_id)) {
   return res.status(403).json({ message: "Unauthorized access" });
-  }
+ }
 
-  if (Date.now() > tokenData.expires_at) {
-    delete JOIN_TOKENS[join_token];
-    return res.status(403).json({ message: "Token expired" });
-  }
+ if (Date.now() > tokenData.expires_at) {
+  return res.status(403).json({ message: "Token expired" });
+ }
 
   try {
     const session = await pool.query(

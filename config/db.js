@@ -9,9 +9,9 @@ const pool = new Pool({
   database: "attendance-system", 
   password: process.env.DB_PWD,
   port: 5432,
-  /*ssl: {
+  ssl: {
     rejectUnauthorized: false,
-  },*/
+  }
 });
 
 module.exports = pool;

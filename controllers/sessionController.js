@@ -95,6 +95,7 @@ exports.precheckSession = async (req, res) => {
     }
 
     const join_token = uuidv4();
+    console.log("CREATED TOKEN:", join_token);
 
     await pool.query(
     "INSERT INTO join_tokens (token, session_id, expires_at) VALUES ($1,$2,$3)",

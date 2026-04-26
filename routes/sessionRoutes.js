@@ -13,7 +13,7 @@ const {
 
 router.post("/create", auth, createSession); // teacher only
 router.post("/end/:id", endSession); //teacher only
-router.post("/verify", auth, verifySession);
+router.post("/verify",verifySession);
 router.post("/precheck", precheckSession);
 router.get("/teacher/sessions",auth, getSessionsByTeacher);
 router.get("/attendance/:session_id", getSessionAttendance);

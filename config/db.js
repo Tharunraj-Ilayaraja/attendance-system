@@ -5,13 +5,13 @@ const { Pool } = require("pg");
 
 const pool = new Pool({
   user: "postgres",
-  host: "attendance-system-db-tr.postgres.database.azure.com",
+  host: process.env.DB_HOST,
   database: "attendance-system", 
-  password: "Raja@1978",
+  password: process.env.DB_PWD,
   port: 5432,
-  ssl: {
+  /*ssl: {
     rejectUnauthorized: false,
-  },
+  },*/
 });
 
 module.exports = pool;

@@ -3,19 +3,19 @@ const getDistance = require("../utils/distance");
 const { v4: uuidv4 } = require("uuid");
 const QRCode = require("qrcode");
 
+const JOIN_TOKENS = {};
+
 // ✅ Create Session (Teacher Only)
 exports.createSession = async (req, res) => {
   try {
-    if (req.user.role !== "teacher") {
-      return res.status(403).json({ message: "Access denied" });
-    }
+    
 
     const { latitude, longitude } = req.body;
 
 
-    ;
+    
     const token = uuidv4();
-    const qrUrl = `${process.env.REACT_API}/scan?token=${token}`;
+    const qrUrl = `${process.env.REACT_API}/join?token=${token}`;
     const qrImage = await QRCode.toDataURL(qrUrl)
     const session_code = Math.floor(100000 + Math.random() * 900000).toString();
     const radius = 50; // meters
@@ -31,10 +31,7 @@ exports.createSession = async (req, res) => {
 
     res.json({
       session: result.rows[0],
-      
-     // qrData: token,
-      qrImage,
-      //otp: session_code,
+      qrImage
     });
   } catch (err) {
     console.log(err);
@@ -45,6 +42,7 @@ exports.createSession = async (req, res) => {
 //End QR
 exports.endSession = async (req, res) => {
   const { id } = req.params;
+  
 
   try {
     const result = await pool.query(
@@ -60,23 +58,31 @@ exports.endSession = async (req, res) => {
   }
 };
 
-// ✅ Scan QR
-exports.scanQR = async (req, res) => {
+
+exports.precheckSession = async (req, res) => {
   const { qr_token, latitude, longitude } = req.body;
-  const user_id = req.user.id;
+  
+
 
   try {
-    const sessionResult = await pool.query(
+    const result = await pool.query(
       "SELECT * FROM sessions WHERE token=$1 AND is_active=true",
       [qr_token]
     );
 
-    if (sessionResult.rows.length === 0) {
-      return res.status(400).json({ message: "Invalid or expired session" });
+    if (result.rows.length === 0) {
+      return res.status(400).json({ message: "Session closed" });
     }
 
-    const session = sessionResult.rows[0];
+    const session = result.rows[0];
 
+    // ⏰ Time check
+    const now = new Date();
+    if (now > session.end_time) {
+      return res.status(403).json({ message: "Session expired" });
+    }
+
+    // 📍 GPS check
     const distance = getDistance(
       latitude,
       longitude,
@@ -85,83 +91,122 @@ exports.scanQR = async (req, res) => {
     );
 
     if (distance > session.radius) {
-      return res.status(403).json({ message: "You are not in range" });
+      return res.status(403).json({ message: "Not in classroom range" });
     }
 
-    // ✅ Prevent duplicate join
-    const alreadyJoined = await pool.query(
-      "SELECT * FROM session_logs WHERE user_id=$1 AND session_id=$2 AND event='joined'",
-      [user_id, session.id]
-    );
+    const join_token = uuidv4();
 
-    if (alreadyJoined.rows.length > 0) {
-      return res.json({ message: "Already joined" });
-    }
-
-    await pool.query(
-      "INSERT INTO session_logs (user_id, session_id, event) VALUES ($1,$2,$3)",
-      [user_id, session.id, "joined"]
-    );
+    JOIN_TOKENS[join_token] = {
+      session_id: session.id,
+      expires_at: Date.now() + (2 * 60 * 1000)
+    };
 
     res.json({
-      message: "Enter secure mode",
+      message: "Allowed",
       session_id: session.id,
+      join_token
     });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+
+exports.verifySession = async (req, res) => {
+  const { session_id, otp, reg_no ,join_token} = req.body;
+  const sessionIdNum = Number(session_id);
+  const tokenData = JOIN_TOKENS[join_token];
+
+  
+
+  if (!tokenData || tokenData.session_id !== sessionIdNum) {
+  return res.status(403).json({ message: "Unauthorized access" });
+  }
+
+  if (Date.now() > tokenData.expires_at) {
+    delete JOIN_TOKENS[join_token];
+    return res.status(403).json({ message: "Token expired" });
+  }
+
+  try {
+    const session = await pool.query(
+      "SELECT * FROM sessions WHERE id=$1",
+      [session_id]
+    );
+
+    if (session.rows.length === 0) {
+      return res.status(400).json({ message: "Invalid session" });
+    }
+
+    const s = session.rows[0];
+
+    if (otp !== s.session_code) {
+      return res.status(403).json({ message: "Wrong OTP" });
+    }
+
+    const student = await pool.query(
+      "SELECT * FROM students WHERE usnid=$1",
+      [reg_no]
+    );
+
+    if (student.rows.length === 0) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const user_id = student.rows[0].usnid;
+
+    await pool.query(
+      "INSERT INTO attendance (user_id, session_id) VALUES ($1,$2)",
+      [user_id, session_id]
+    );
+
+    res.json({ message: "Attendance marked" });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// ✅ Verify OTP
-exports.verifyOTP = async (req, res) => {
-  const { session_id, otp } = req.body;
-  const user_id = req.user.id;
+exports.getSessionsByTeacher = async (req, res) => {
+  try {
+    const teacher_id = req.user.id;
+
+    const sessions = await pool.query(
+      `SELECT id, start_time 
+       FROM sessions 
+       WHERE teacher_id=$1 
+       ORDER BY start_time DESC`,
+      [teacher_id]
+    );
+
+    res.json(sessions.rows);
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getSessionAttendance = async (req, res) => {
+  const { session_id } = req.params;
+  console.log("here");
 
   try {
-    const sessionResult = await pool.query(
-      "SELECT * FROM sessions WHERE id=$1 AND is_active=true",
+    const result = await pool.query(
+      `SELECT s.usnid, s.name
+       FROM students s
+       JOIN attendance a ON a.user_id = s.usnid
+       WHERE a.session_id=$1`,
       [session_id]
     );
 
-    if (sessionResult.rows.length === 0) {
-      return res.status(400).json({ message: "Session not found or expired" });
-    }
-
-    const session = sessionResult.rows[0];
-    const now = new Date();
-
-    if (now > session.end_time) {
-      return res.status(403).json({ message: "Session expired" });
-    }
-
-    if (session.session_code !== otp) {
-      return res.status(403).json({ message: "Invalid OTP" });
-    }
-
-    // ✅ Anti-proxy check
-    const logCheck = await pool.query(
-      "SELECT * FROM session_logs WHERE user_id=$1 AND session_id=$2 AND event='joined'",
-      [user_id, session_id]
-    );
-
-    if (logCheck.rows.length === 0) {
-      return res.status(403).json({ message: "You did not join properly" });
-    }
-
-    await pool.query(
-      "INSERT INTO attendance (user_id, session_id, status) VALUES ($1,$2,'present') ON CONFLICT DO NOTHING",
-      [user_id, session_id]
-    );
-
-    await pool.query(
-      "INSERT INTO session_logs (user_id, session_id, event) VALUES ($1,$2,'verified')",
-      [user_id, session_id]
-    );
-
-    res.json({ message: "Attendance marked successfully" });
+    res.json(result.rows);
 
   } catch (err) {
+    console.log(err);
     res.status(500).json({ error: err.message });
   }
 };

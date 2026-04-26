@@ -23,36 +23,37 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-   console.log("mf, all working....in login now");
+  console.log("Reached Login Backend");
   const { email, password } = req.body;
-  console.log(email," ",password);
+  console.log("Teacher Mail: ",email,"Pwd: ",password);
  
 
   try {
     const user = await pool.query(
-      "SELECT * FROM users WHERE email=$1",
+      "SELECT * FROM teachers WHERE email=$1",
       [email]
     );
 
     if (user.rows.length === 0)
-      return res.status(400).json({ message: "User not found" });
+      return res.status(400).json({ message: "teacher not found" });
 
     
 
     const valid = password === user.rows[0].password//await bcrypt.compare(password, user.rows[0].password);
-    console.log(process.env.JWT_SECRET);
+    
 
     if (!valid)
       return res.status(400).json({ message: "Invalid password" });
 
     const token = jwt.sign(
-      { id: user.rows[0].id, role: user.rows[0].role },
+      { id: user.rows[0].id },
       process.env.JWT_SECRET,
       { expiresIn: "8h" }
     );
 
-    res.json({ token, role : user.rows[0].role });
+    res.json({ token});
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 };

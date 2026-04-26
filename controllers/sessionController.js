@@ -122,7 +122,7 @@ exports.verifySession = async (req, res) => {
   
    console.log(req.body);
    console.log(join_token);
-   console.log(tokenRes);
+   
  
  
   const tokenRes = await pool.query(
@@ -130,6 +130,7 @@ exports.verifySession = async (req, res) => {
    [join_token]
    );
   
+   console.log("TOKENRESULT: ",tokenRes);
 
    
 

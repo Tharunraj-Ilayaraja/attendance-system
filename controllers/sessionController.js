@@ -117,7 +117,12 @@ exports.precheckSession = async (req, res) => {
 
 
 exports.verifySession = async (req, res) => {
+  console.log("BACKEND VERIFY SESSIONS HIT");
   const { session_id, otp, reg_no ,join_token} = req.body;
+  
+   console.log(req.body);
+   console.log(join_token);
+   console.log(tokenRes);
  
  
   const tokenRes = await pool.query(
@@ -126,10 +131,7 @@ exports.verifySession = async (req, res) => {
    );
   
 
-   console.log("BACKEND VERIFY SESSIONS HIT");
-   console.log(req.body);
-   console.log(join_token);
-   console.log(tokenRes);
+   
 
   if (tokenRes.rows.length === 0) {
   return res.status(403).json({ message: "Invalid token" });

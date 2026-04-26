@@ -62,7 +62,7 @@ exports.endSession = async (req, res) => {
 exports.precheckSession = async (req, res) => {
   const { qr_token, latitude, longitude } = req.body;
   
-
+  console.log("HITTED PRECHECK");
 
   try {
     const result = await pool.query(

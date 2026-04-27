@@ -39,7 +39,7 @@ exports.login = async (req, res) => {
 
     
 
-    const valid = password === user.rows[0].password//await bcrypt.compare(password, user.rows[0].password);
+    const valid = password === user.rows[0].password;
     
 
     if (!valid)

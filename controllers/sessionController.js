@@ -18,7 +18,7 @@ exports.createSession = async (req, res) => {
     const qrUrl = `${process.env.REACT_API}/join?token=${token}`;
     const qrImage = await QRCode.toDataURL(qrUrl)
     const session_code = Math.floor(100000 + Math.random() * 900000).toString();
-    const radius = 50; // meters
+    const radius = 1; // meters
     const teacher_id = req.user.id;
     const start_time = new Date();
     const end_time = new Date(start_time.getTime() + 5 * 60000);
@@ -181,7 +181,10 @@ exports.verifySession = async (req, res) => {
       [user_id, session_id]
     );
 
+    await pool.query("DELETE FROM join_tokens WHERE token=$1",[join_token]);
+
     res.json({ message: "Attendance marked" });
+
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -210,7 +213,7 @@ exports.getSessionsByTeacher = async (req, res) => {
 
 exports.getSessionAttendance = async (req, res) => {
   const { session_id } = req.params;
-  console.log("here");
+
 
   try {
     const result = await pool.query(

@@ -18,7 +18,7 @@ exports.createSession = async (req, res) => {
     const qrUrl = `${process.env.REACT_API}/join?token=${token}`;
     const qrImage = await QRCode.toDataURL(qrUrl)
     const session_code = Math.floor(100000 + Math.random() * 900000).toString();
-    const radius = 1; // meters
+    const radius = 30; // meters
     const teacher_id = req.user.id;
     const start_time = new Date();
     const end_time = new Date(start_time.getTime() + 5 * 60000);

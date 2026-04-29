@@ -11,14 +11,13 @@ const cors = require("cors");
 
 app.use(cors({
   origin: ["https://attendance-system-frontend-pi.vercel.app", "http://localhost:3000"],
-  credentials :true
+  credentials :true //doubt
 }));
 
 
 
 app.use(express.json());
 app.use("/api/auth", authRoutes);
-
 app.use("/api/session", sessionRoutes);
 
 app.get("/",(req,res)=>{

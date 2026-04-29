@@ -2,7 +2,7 @@ const pool = require("../config/db");
 const getDistance = require("../utils/distance");
 const { v4: uuidv4 } = require("uuid");
 const QRCode = require("qrcode");
-
+const axios = require("axios");
 
 
 // ✅ Create Session (Teacher Only)
@@ -18,7 +18,7 @@ exports.createSession = async (req, res) => {
     const qrUrl = `${process.env.REACT_API}/join?token=${token}`;
     const qrImage = await QRCode.toDataURL(qrUrl)
     const session_code = Math.floor(100000 + Math.random() * 900000).toString();
-    const radius = 30; // meters
+    const radius = 50; // meters
     const teacher_id = req.user.id;
     const start_time = new Date();
     const end_time = new Date(start_time.getTime() + 5 * 60000);
@@ -91,6 +91,7 @@ exports.precheckSession = async (req, res) => {
     );
 
     if (distance > session.radius) {
+      console.log("dist ",distance,"radius",session.radius)
       return res.status(403).json({ message: "Not in classroom range" });
     }
 
@@ -231,3 +232,90 @@ exports.getSessionAttendance = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.getAnalysis = async (req, res) => {
+  try {
+    const teacherId = req.user.id;
+
+    // 🔹 1. Get sessions
+    const sessionsRes = await pool.query(
+      "SELECT id FROM sessions WHERE teacher_id = $1",
+      [teacherId]
+    );
+
+    const sessionIds = sessionsRes.rows.map(s => s.id);
+
+    if (sessionIds.length === 0) {
+      return res.json({ message: "No sessions found" });
+    }
+
+    const totalSessions = sessionIds.length;
+
+    // 🔹 2. Get students
+    const studentsRes = await pool.query("SELECT usnid FROM students");
+
+    // 🔹 3. Attendance count
+    const attendanceRes = await pool.query(
+      `SELECT user_id, COUNT(*) as present_count
+       FROM attendance
+       WHERE session_id = ANY($1)
+       GROUP BY user_id`,
+      [sessionIds]
+    );
+
+    // 🔹 4. Build stats with percentage
+    const stats = {};
+
+    studentsRes.rows.forEach(student => {
+      stats[student.usnid] = {
+        present: 0,
+        total: totalSessions,
+        percentage: 0
+      };
+    });
+
+    attendanceRes.rows.forEach(row => {
+      if (stats[row.user_id]) {
+        stats[row.user_id].present = parseInt(row.present_count);
+      }
+    });
+
+    // 🔹 5. Calculate percentage
+    Object.keys(stats).forEach(id => {
+      const s = stats[id];
+      s.percentage = totalSessions === 0
+        ? 0
+        : Math.round((s.present / totalSessions) * 100);
+    });
+
+    // 🔹 6. Prepare CLEAN data for AI
+    const aiInput = {};
+
+    Object.keys(stats).forEach(id => {
+      aiInput[`student_${id}`] = {
+        percentage: stats[id].percentage
+      };
+    });
+
+    // 🔹 7. CALL GEMMA AI
+    const aiRes = await axios.post(process.env.GEMMA_CONTAINER_API, {
+      text: JSON.stringify(aiInput)
+    });
+
+    const aiReport = aiRes.data.result;
+
+    // 🔹 8. Response
+    res.json({
+      totalSessions,
+      stats,
+      aiReport
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+

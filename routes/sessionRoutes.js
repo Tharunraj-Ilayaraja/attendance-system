@@ -8,13 +8,15 @@ const {
   endSession,
   precheckSession,
   getSessionsByTeacher,
-  getSessionAttendance
+  getSessionAttendance,
+  getAnalysis
 } = require("../controllers/sessionController");
 
 router.post("/create", auth, createSession); // teacher only
 router.post("/end/:id", endSession); //teacher only
 router.post("/verify",verifySession);
 router.post("/precheck", precheckSession);
+router.get("/analysis",auth,getAnalysis);
 router.get("/teacher/sessions",auth, getSessionsByTeacher);
 router.get("/attendance/:session_id", getSessionAttendance);
 
